@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project  xmlns:ivy="antlib:org.apache.ivy.ant"
+          xmlns:pct="antlib:eu.rssw.pct" 
+          xmlns:if="ant:if"
+          xmlns:unless="ant:unless">
+<!--           xmlns:extras="antlib:eu/rssw/pct/oedoc" > -->
+
+	<property name="ivy.jar.version" value="2.4.0" />
+	<property name="ivy.jar.name" value="ivy-${ivy.jar.version}.jar" />
+	<property name="ivy.home" value="${user.home}/.ivy2" />
+	<available property="ivy.installed" file="${ivy.home}/${ivy.jar.name}" />
+
+    <property name="pct.jar.version" value="v207" />
+    <property name="pct.jar.name" value="PCT.jar" />
+    <property name="pct.home" value="${user.home}/.pct" />
+    <available property="pct.installed" file="${pct.home}/${pct.jar.name}" />
+
+    <property name="buildRoot" value="./target" />
+    
+	<!-- this is called once and auto-installs the ivy jar into ~/.ivy2 so that 
+		users only have to have ant to build. -->
+	<target name="ivy-install" unless="ivy.installed">
+		<mkdir dir="${ivy.home}" />
+		<echo>Installing IVY ${ivy.jar.name} to ${ivy.home}</echo>
+		<get
+			src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.jar.version}/${ivy.jar.name}"
+			dest="${ivy.home}/${ivy.jar.name}" />
+	</target>
+
+    <!-- this is called once and auto-installs the ivy jar into ~/.ivy2 so that 
+        users only have to have ant to build. -->
+    <target name="pct-install" unless="pct.installed">
+        <mkdir dir="${pct.home}" />
+        <echo>Installing PCT ${pct.jar.version} to ${pct.home}</echo>
+        <get
+            src="https://github.com/Riverside-Software/pct/releases/download/${pct.jar.version}/${pct.jar.name}"
+            dest="${pct.home}/${pct.jar.name}" />
+    </target>
+
+    <!-- this is called automatically and just inits ivy -->
+    <target name="pct-init" depends="pct-install">
+	    <property environment="env" />
+	    <property name="buildRoot" value="./target" />
+	    <condition property="DLC" value="${env.DLC}">
+	       <isset property="env.DLC" />
+	    </condition>
+        <condition property="DLC" value="c:/Progress/OpenEdge">
+            <and><os family="windows" /><available file="c:/Progress/OpenEdge/bin" type="dir" /><not><isset property="DLC" /></not></and>
+        </condition>
+		<condition property="DLC" value="c:/Progressx86/OpenEdge">
+		    <and><os family="windows" /><available file="c:/Progressx86/OpenEdge/bin" type="dir" /><not><isset property="DLC" /></not></and>
+		</condition>
+	    <fail unless="DLC" message="DLC is not set!" />
+	    <echo>Using DLC ${DLC}</echo>
+	    
+	    <taskdef resource="PCT.properties" classpath="${pct.home}/${pct.jar.name}"/>
+	    <typedef resource="types.properties" classpath="${pct.home}/${pct.jar.name}" />
+	  <!--  <taskdef resource="extras.properties" /> -->
+	    <taskdef uri="antlib:eu/rssw/pct" resource="eu/rssw/pct/antlib.xml" classpath="${pct.home}/${pct.jar.name}" />
+<!--         <taskdef uri="antlib:eu/rssw/pct/oedoc" resource="eu/rssw/pct/oedoc/antlib.xml" classpath="${pct.home}/${pct.jar.name}" /> -->
+	  
+        <taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant"
+            classpath="${ivy.home}/${ivy.jar.name}" />
+    </target>
+
+	<!-- this is called automatically and just inits ivy -->
+	<target name="ivy-init" depends="ivy-install">
+		<taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant"
+			classpath="${ivy.home}/${ivy.jar.name}" />
+			
+        <antcall target="ivy-init-config"  />
+	</target>
+	
+	<target name="ivy-init-config" unless="ivy.initialized">	
+        <ivy:configure file="ivysettings.xml" />
+		<ivy:resolve />
+		<property name="ivy.initialized" value="true" />
+	</target>
+
+	<!-- called by the user to download jars into bin/lib/ -->
+	<target name="ivy-retrieve" depends="ivy-init" unless="ivy-retrieve.executed"
+		description="downloads jars for the project">
+<!-- 		<ivy:retrieve pattern="bin/lib/[conf]/[type]s/[artifact].[ext]" -->
+<!-- 			conf="*" type="*" /> -->
+        <ivy:retrieve pattern="lib/[type]s/[artifact].[ext]"/>
+        
+        <!-- clean lib/progress -->
+        <mkdir dir="lib/progress" />
+        <delete includeemptydirs="true">
+            <fileset dir="lib">
+                <include name="progress/**" />
+            </fileset>
+        </delete>
+        
+        <!-- unzip OpenEdge files to lib/progress -->
+        <unzip dest="lib/progress">
+            <fileset dir="lib">
+                <include name="jars/*.zip" />
+            </fileset>
+        </unzip>
+        <copy toDir="lib/progress" flatten="true">
+            <fileset dir="lib">
+                <include name="jars/*.pl" />
+            </fileset>
+        </copy>
+	</target>
+
+    <target name="cleanup">
+        <!-- Remove the preprocess directory -->
+        <delete dir="${buildRoot}/bin/preprocess" />
+        <!-- Remove the .pct directory -->
+        <delete dir="${buildRoot}/bin/.pct" />
+        <delete includeemptydirs="true">
+            <fileset dir="${buildRoot}/">
+                <include name="bin/**" />
+            </fileset>
+        </delete>
+    </target>
+
+    <target name="package" depends="build,test">
+
+        <property name="package.file" value="${buildRoot}/${ivy.module}.zip" />
+        <property name="package.info.file" value="${buildRoot}/bin/${ivy.module}-info.txt" />
+
+        <delete file="${package.file}" />
+
+        <ProgressVersion dlcHome="${DLC}" majorVersion="dlcMajor"
+            minorVersion="dlcMinor" reducedVersion="dlcReduced" fullVersion="dlcFull"
+            revision="dlcRevision" />
+        <tstamp>
+            <format property="ISO_DATETIME" pattern="yyyy-MM-dd'T'HH:mm:ss.SSSZ" />
+        </tstamp>
+
+        <!-- Keep the line break before the closing echo tag to ensure its written 
+            into the version.txt file -->
+        <echo file="${package.info.file}" force="true">Package-Name    : ${ivy.organisation}.${ivy.module}
+Package-Version : ${package.version}
+Package-Status  : ${package.status}
+Build-date      : ${ISO_DATETIME}
+OpenEdge-Version: ${dlcFull}
+</echo>
+
+        <!-- Add content to archive -->
+        <zip destfile="${package.file}" update="true">
+            <zipfileset dir="${buildRoot}/bin" includes="**/*" excludes="**/.pct/**" erroronmissingdir="false" />
+            <zipfileset dir="${buildRoot}/rcode" includes="**/*" excludes="**/.pct/**" erroronmissingdir="false" />
+            <zipfileset dir="${buildRoot}/resources" includes="**/*" excludes="**/.pct/**" erroronmissingdir="false" />
+            <zipfileset dir="${buildRoot}" includes="webapp/**/*"/>
+            <zipfileset dir="${buildRoot}" includes="www/**/*" />
+<!--             <zipfileset file="${projectRoot}/.project" /> -->
+<!--             <zipfileset file="${projectRoot}/.propath" /> -->
+<!--             <zipfileset file="${package.info.file}" /> -->
+        </zip>
+    </target>
+
+    
+    <target name="publish-release" depends="ivy-retrieve">
+        <ivy:makepom ivyfile="ivy.xml" pomfile="target/pom.xml"/>
+        <buildnumber />
+        <property name="package.version" value="${ivy.revision}.${build.number}" />
+        <property name="package.status" value="release" />
+        <echo>Package version: ${package.version} ${package.status}</echo>
+        
+        <antcall target="package" />
+        
+        <ivy:publish resolver='artifactory-release' pubrevision="${package.version}" forcedeliver="true"
+            update="false" status='${package.status}' >
+               <artifacts pattern="target/[artifact].[ext]" />
+        </ivy:publish>      
+   </target>
+
+   <target name="publish-snapshot" depends="ivy-retrieve">
+        <ivy:makepom ivyfile="ivy.xml" pomfile="target/pom.xml"/>
+        <property file="build.number" />
+        <property name="package.version" value="${ivy.revision}.${build.number}-SNAPSHOT" />
+        <property name="package.status" value="release" />
+        <echo>Package version: ${package.version} ${package.status}</echo>
+        
+        <antcall target="package" />
+
+        <ivy:publish resolver='artifactory-snapshots' pubrevision="${package.version}" forcedeliver="true"
+            update="true" status='${package.status}' overwrite="true">
+               <artifacts pattern="target/[artifact].[ext]" />
+        </ivy:publish>      
+    </target>
+
+</project>
