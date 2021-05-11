@@ -3,7 +3,7 @@
 	xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd"
 	xmlns:e="http://ant.apache.org/ivy/extra">
 
-	<info organisation="com.bpmid" module="jwtoe" revision="0.0" />
+	<info organisation="com.bpmid" module="jwtoe" revision="1.0" />
 	<publications>
 		<artifact name="pom" type="pom" ext="xml" />
 		<artifact name="jwtoe" ext="zip" />
