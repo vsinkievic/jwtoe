@@ -65,7 +65,12 @@ class jwtoe.JwtBuilder:
     end method.
     
     method public character compact ():
-        return HS256:signWithKey(oHeader, oPayload, cHS256key).
+        def var cToken as char no-undo.
+        
+        cToken = HS256:signWithKey(oHeader, oPayload, cHS256key).
+        delete object(oHeader).
+        delete object(oPayload).
+        return cToken.
     end method.
     
     method public JwtBuilder signWithHS256Key (pcKey as char):
