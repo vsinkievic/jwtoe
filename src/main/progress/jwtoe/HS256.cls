@@ -195,6 +195,15 @@ class jwtoe.HS256:
         
         &UNDEFINE xiBlockSize
         return cHMACSHA.
+        
+        finally:
+            set-size(mKeyOpad      ) = 0.
+            set-size(mKeyIpad      ) = 0.
+            set-size(mData         ) = 0.
+            set-size(mKey          ) = 0.
+            set-size(mInnerCombined) = 0.
+            set-size(mOuterCombined) = 0.
+        end finally.
     end method. /** End Of Function HMACSHA1-BASE64 */
         
     method public static char base64urlEncode ( input cString as longchar ):
@@ -205,6 +214,10 @@ class jwtoe.HS256:
         cEncoded = BASE64-ENCODE(mAuth).
           
         return base64ToBase64Url(cEncoded).
+        
+        finally:
+            set-size(mAuth) = 0.            
+        end finally.
     end method.
     
     method public static char base64UrlDecode ( input cBase64Url as longchar ):
@@ -217,6 +230,10 @@ class jwtoe.HS256:
         copy-lob from mAuth to cDecoded.
         
         return string(cDecoded).
+        
+        finally:
+            set-size(mAuth) = 0.            
+        end finally.
     end method.
     
     method public static char base64ToBase64Url ( input cBase64 as char ):
